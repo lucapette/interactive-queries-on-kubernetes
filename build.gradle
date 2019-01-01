@@ -1,0 +1,51 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:2.0.5.RELEASE")
+    }
+}
+
+plugins {
+    // Apply the java plugin to add support for Java
+    id 'java'
+
+    // Apply the application plugin to add support for building an application
+    id 'application'
+
+    id 'org.springframework.boot' version '2.1.1.RELEASE'
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+repositories {
+    jcenter()
+    maven { url "https://packages.confluent.io/maven/" }
+}
+
+dependencies {
+    compile 'org.apache.kafka:kafka-clients:2.1.0'
+    compile 'org.apache.kafka:kafka-streams:2.1.0'
+    compile 'io.confluent:kafka-avro-serializer:5.1.0'
+    compile 'io.confluent:kafka-schema-registry-client:5.1.0'
+    compile 'io.confluent:kafka-schema-registry:5.1.0'
+    compile 'io.confluent:kafka-streams-avro-serde:5.1.0'
+
+    compile 'org.springframework.boot:spring-boot-starter-web'
+    compileOnly 'org.projectlombok:lombok:1.18.4'
+    annotationProcessor "org.projectlombok:lombok:1.18.4"
+}
+
+// https://stackoverflow.com/questions/18952479/how-to-exclude-multiple-slf4j-bindings-to-log4j
+configurations.all {
+    exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+}
+
+
+// Define the main class for the application
+mainClassName = 'me.lucapette.App'
