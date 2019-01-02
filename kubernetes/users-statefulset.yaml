@@ -1,0 +1,39 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: users
+spec:
+  serviceName: users
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: users
+    spec:
+      containers:
+      - name: users
+        image: users:beta
+        ports:
+        - name: http
+          containerPort: 3000
+        volumeMounts:
+        - name: data
+          mountPath: /tmp/kafka-streams
+        env:
+        - name: KAFKA_BROKERS
+          value: "kafka-dev.kafka-dev.svc.cluster.local:9092"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: RPC_HOST
+          value: $(POD_NAME).users.default.svc.cluster.local
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      resources:
+        requests:
+          storage: 1Mi
+      accessModes:
+      - ReadWriteOnce

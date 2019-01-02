@@ -39,8 +39,8 @@ public class MetadataService {
         }
 
         return new HostStoreInfo(metadata.host(),
-            metadata.port(),
-            metadata.stateStoreNames());
+                metadata.port(),
+                metadata.stateStoreNames());
     }
 
     private boolean notReady(final StreamsMetadata metadata) {
@@ -48,12 +48,12 @@ public class MetadataService {
     }
 
     private List<HostStoreInfo> mapInstancesToHostStoreInfo(
-        final Collection<StreamsMetadata> metadata) {
+            final Collection<StreamsMetadata> metadata) {
 
         return metadata.stream().map(metadatum -> new HostStoreInfo(metadatum.host(),
                 metadatum.port(),
                 metadatum.stateStoreNames()))
-            .collect(Collectors.toList());
+                .collect(Collectors.toList());
     }
 }
 

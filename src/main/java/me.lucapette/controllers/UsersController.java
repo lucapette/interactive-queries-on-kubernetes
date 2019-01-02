@@ -1,8 +1,5 @@
 package me.lucapette.controllers;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.java.Log;
 import me.lucapette.kafka.streams.HostStoreInfo;
 import me.lucapette.kafka.streams.MetadataService;
@@ -17,7 +14,6 @@ import org.apache.kafka.streams.state.QueryableStoreTypes;
 import org.apache.kafka.streams.state.ReadOnlyKeyValueStore;
 import org.apache.kafka.streams.state.StreamsMetadata;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,7 +49,7 @@ public class UsersController {
 
     private MetadataService metadataService;
 
-    private ReadOnlyKeyValueStore<String, User> usersStore() {
+    private ReadOnlyKeyValueStore<String, String> usersStore() {
         return streams.store(USERS_STORE, QueryableStoreTypes.keyValueStore());
     }
 
@@ -65,27 +61,34 @@ public class UsersController {
     }
 
     @GetMapping("/{id}")
-    public User getUser(@PathVariable("id") String id, HttpServletRequest request) {
+    public String getUser(@PathVariable("id") String id, HttpServletRequest request) {
         HostStoreInfo streamsMetadata = metadataService.streamsMetadataForStoreAndKey(USERS_STORE, id, new StringSerializer());
 
         log.info(streamsMetadata.toString());
 
         if (!thisHost(streamsMetadata)) {
-            String url = "http://" + streamsMetadata.getHost() + ":" + streamsMetadata.getPort() + "/conversations";
+            String url = "http://" + streamsMetadata.getHost() + ":" + streamsMetadata.getPort() + request.getRequestURI();
 
-            return restTemplate.getForEntity(url, User.class).getBody();
+            log.info("getting from remote host: " + url);
+
+            return restTemplate.getForEntity(url, String.class).getBody();
         }
 
         return usersStore().get(id);
     }
 
-    @GetMapping("/store")
-    Map<Object, Object> getStore() {
-        Map<Object, Object> all = new HashMap<>();
-        usersStore().all().forEachRemaining(v -> all.put(v.key, v.value));
-
-        return all;
+    @GetMapping("/stores")
+    Map<String, Map<String, Long>> getStores() {
+        Map<String, Map<String, Long>> stores = new HashMap<>();
+        for (StreamsMetadata metadata : streams.allMetadata()) {
+            stores.put(metadata.host(), new HashMap<>());
+            for (String storeName : metadata.stateStoreNames()) {
+                stores.get(storeName).put(storeName, usersStore().approximateNumEntries());
+            }
+        }
+        return stores;
     }
+
 
     @PostConstruct
     public void start() {
@@ -106,8 +109,6 @@ public class UsersController {
         builder.table("users", Materialized.as(USERS_STORE));
 
         streams = new KafkaStreams(builder.build(), props);
-        // we'll need to take this into account as soon as we run this on
-        // multiple servers
         metadataService = new MetadataService(streams);
         streams.start();
     }
@@ -115,11 +116,4 @@ public class UsersController {
     private boolean thisHost(final HostStoreInfo host) {
         return host.getHost().equals(rpcHost) && host.getPort() == rpcPort;
     }
-}
-
-@NoArgsConstructor
-@AllArgsConstructor
-@Data
-class User {
-    private String id;
 }
