@@ -12,7 +12,6 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.state.QueryableStoreTypes;
 import org.apache.kafka.streams.state.ReadOnlyKeyValueStore;
-import org.apache.kafka.streams.state.StreamsMetadata;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,25 +22,21 @@ import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 
 @Log
 @RestController
-@RequestMapping("/users")
 public class UsersController {
-    public static final String USERS_STORE = "usersStore";
+    static final String USERS_STORE = "usersStore";
     @Value("${kafka.brokers}")
     private String kafkaBrokers;
     @Value("${rpc.host}")
     private String rpcHost;
     @Value("${rpc.port}")
     private int rpcPort;
-
-
-    private String applicationId = "users";
 
     private KafkaStreams streams;
 
@@ -60,8 +55,8 @@ public class UsersController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{id}")
-    public String getUser(@PathVariable("id") String id, HttpServletRequest request) {
+    @GetMapping("/users/{id}")
+    public String getUserById(@PathVariable("id") String id, HttpServletRequest request) {
         HostStoreInfo streamsMetadata = metadataService.streamsMetadataForStoreAndKey(USERS_STORE, id, new StringSerializer());
 
         log.info(streamsMetadata.toString());
@@ -77,18 +72,18 @@ public class UsersController {
         return usersStore().get(id);
     }
 
-    @GetMapping("/stores")
-    Map<String, Map<String, Long>> getStores() {
-        Map<String, Map<String, Long>> stores = new HashMap<>();
-        for (StreamsMetadata metadata : streams.allMetadata()) {
-            stores.put(metadata.host(), new HashMap<>());
-            for (String storeName : metadata.stateStoreNames()) {
-                stores.get(storeName).put(storeName, usersStore().approximateNumEntries());
-            }
-        }
-        return stores;
-    }
+    @GetMapping("/users")
+    public String getUsers() {
+        ReadOnlyKeyValueStore<String, String> store = usersStore();
 
+        log.info("before");
+        for (int i = 0; i < 100_000; i++) {
+            store.get("" + i);
+        }
+        log.info("after");
+
+        return "ok";
+    }
 
     @PostConstruct
     public void start() {
@@ -96,6 +91,7 @@ public class UsersController {
 
         Properties props = new Properties();
 
+        String applicationId = "users";
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, applicationId);
         props.put(StreamsConfig.CLIENT_ID_CONFIG, applicationId); // accept client id env
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBrokers);
